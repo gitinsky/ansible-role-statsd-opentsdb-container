@@ -1,0 +1,25 @@
+- name: create ext volume for configs
+  file: state=directory path={{ ext_statsd_opentsdb_conf_volume }}
+
+- name: put StatsD-OpenTSDB config
+  template: src=config.js dest={{ ext_statsd_opentsdb_conf_volume }}/config.js
+  register: config
+
+- name: start a StatsD-OpenTSDB container
+  docker:
+    image: gitinsky/statsd-opentsdb:0.1.0
+    state: "{{ 'restarted' if config.changed else 'reloaded' }}"
+    hostname: "statsd-{{ ansible_hostname }}"
+    dns:
+      - "{{ ansible_docker0.ipv4.address }}"
+      - 8.8.4.4
+    expose:
+      - "{{ statsd_port }}"
+    ports:
+        - "{{ statsd_port }}:{{ statsd_port }}/udp"
+    volumes:
+      - "{{ ext_statsd_opentsdb_conf_volume }}:/statsd/config"
+    name: statsd-opentsdb
+    restart_policy: always
+  tags:
+    - docker
